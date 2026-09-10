@@ -3,6 +3,50 @@ document.addEventListener("DOMContentLoaded", () => {
   const capabilitySelect = document.getElementById("capability");
   const registerForm = document.getElementById("register-form");
   const messageDiv = document.getElementById("message");
+  const loginButton = document.getElementById("login-button");
+  const logoutButton = document.getElementById("logout-button");
+  const authStatus = document.getElementById("auth-status");
+  const loginDialog = document.getElementById("login-dialog");
+  const loginForm = document.getElementById("login-form");
+  const loginMessage = document.getElementById("login-message");
+  let authToken = sessionStorage.getItem("accessToken");
+  let currentUser = null;
+
+  function authorizationHeaders() {
+    return authToken ? { Authorization: `Bearer ${authToken}` } : {};
+  }
+
+  function isPracticeLead() {
+    return currentUser?.role === "practice_lead";
+  }
+
+  function updateAuthControls() {
+    const signedIn = currentUser !== null;
+    authStatus.textContent = signedIn
+      ? `Signed in as ${currentUser.username} (${currentUser.role})`
+      : "Signed out";
+    loginButton.classList.toggle("hidden", signedIn);
+    logoutButton.classList.toggle("hidden", !signedIn);
+    registerForm.querySelectorAll("input, select, button").forEach((element) => {
+      element.disabled = !isPracticeLead();
+    });
+  }
+
+  async function restoreSession() {
+    if (!authToken) {
+      updateAuthControls();
+      return;
+    }
+
+    const response = await fetch("/auth/me", { headers: authorizationHeaders() });
+    if (response.ok) {
+      currentUser = await response.json();
+    } else {
+      authToken = null;
+      sessionStorage.removeItem("accessToken");
+    }
+    updateAuthControls();
+  }
 
   // Function to fetch capabilities from API
   async function fetchCapabilities() {
@@ -30,7 +74,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 ${details.consultants
                   .map(
                     (email) =>
-                      `<li><span class="consultant-email">${email}</span><button class="delete-btn" data-capability="${name}" data-email="${email}">❌</button></li>`
+                      `<li><span class="consultant-email">${email}</span>${isPracticeLead() ? `<button class="delete-btn" aria-label="Remove ${email}" data-capability="${name}" data-email="${email}">Remove</button>` : ""}</li>`
                   )
                   .join("")}
               </ul>
@@ -82,6 +126,7 @@ document.addEventListener("DOMContentLoaded", () => {
         )}/unregister?email=${encodeURIComponent(email)}`,
         {
           method: "DELETE",
+          headers: authorizationHeaders(),
         }
       );
 
@@ -126,6 +171,7 @@ document.addEventListener("DOMContentLoaded", () => {
         )}/register?email=${encodeURIComponent(email)}`,
         {
           method: "POST",
+          headers: authorizationHeaders(),
         }
       );
 
@@ -157,6 +203,51 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
+  loginButton.addEventListener("click", () => {
+    loginMessage.className = "hidden";
+    loginDialog.showModal();
+  });
+
+  document.getElementById("cancel-login").addEventListener("click", () => {
+    loginDialog.close();
+  });
+
+  loginForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const response = await fetch("/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        username: document.getElementById("username").value,
+        password: document.getElementById("password").value,
+      }),
+    });
+
+    if (!response.ok) {
+      loginMessage.textContent = "Invalid username or password.";
+      loginMessage.className = "error";
+      return;
+    }
+
+    const result = await response.json();
+    authToken = result.access_token;
+    currentUser = { username: result.username, role: result.role };
+    sessionStorage.setItem("accessToken", authToken);
+    loginForm.reset();
+    loginDialog.close();
+    updateAuthControls();
+    fetchCapabilities();
+  });
+
+  logoutButton.addEventListener("click", async () => {
+    await fetch("/auth/logout", { method: "POST", headers: authorizationHeaders() });
+    authToken = null;
+    currentUser = null;
+    sessionStorage.removeItem("accessToken");
+    updateAuthControls();
+    fetchCapabilities();
+  });
+
   // Initialize app
-  fetchCapabilities();
+  restoreSession().finally(fetchCapabilities);
 });

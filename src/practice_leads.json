@@ -1,0 +1,20 @@
+[
+  {
+    "username": "practice-lead",
+    "role": "practice_lead",
+    "practice_area": "All",
+    "password_algorithm": "pbkdf2_sha256",
+    "password_iterations": 600000,
+    "password_salt": "b3ea67b278bc2c8202fe97ef04851ebe",
+    "password_hash": "6302051319059a4e0a26b940ab7c8f6c5aa2e94a4655ef5d3a34d55232ef7db2"
+  },
+  {
+    "username": "consultant",
+    "role": "consultant",
+    "practice_area": "Technology",
+    "password_algorithm": "pbkdf2_sha256",
+    "password_iterations": 600000,
+    "password_salt": "e1c3c3f46f3ce9b17b90e5a7698635cc",
+    "password_hash": "42c63ab243b6390f2dd1115ec59fd981d89cd6c56df7b839f0658ee75b28ee9e"
+  }
+]
